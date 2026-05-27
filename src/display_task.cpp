@@ -15,12 +15,7 @@
 #include "data_types.h"
 #include "display_task.h"
 #include "font/myfont.h"
-LV_IMG_DECLARE(gw);  
-LV_IMG_DECLARE(x); 
-LV_IMG_DECLARE(ribi1); 
-LV_IMG_DECLARE(ribi2); 
-LV_IMG_DECLARE(ribi3); 
-LV_IMG_DECLARE(park); 
+#include "icon/icon.h"
  /* forward-declare the symbol */
 #if LV_FONT_MONTSERRAT_16
 #pragma message "LV_FONT_MONTSERRAT_48 is enabled"
