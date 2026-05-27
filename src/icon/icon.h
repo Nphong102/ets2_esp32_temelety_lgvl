@@ -28,4 +28,4 @@ LV_IMG_DECLARE(sp60);
 LV_IMG_DECLARE(sp70); 
 LV_IMG_DECLARE(sp80); 
 LV_IMG_DECLARE(sp90); 
-#endif /* MY_FONT_24_H */
+#endif /* MY_ICON_IMAGE  */
