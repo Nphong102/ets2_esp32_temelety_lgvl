@@ -73,7 +73,7 @@ void fetchTruckData() {
             truck.fuel             = doc["truck"]["fuel"];
             truck.fuelCapacity     = doc["truck"]["fuelCapacity"];
             truck.fuelWarningOn    = doc["truck"]["fuelWarningOn"];
-            truck.airPressure      = doc["truck"]["airPressure"];
+            truck.airPressure      = doc["truck"]["air"];
             truck.airWarningOn     = doc["truck"]["airWarningOn"];
             truck.displayedGear    = doc["truck"]["displayedGear"];
             truck.waterTemperature = doc["truck"]["watterTemp"];
@@ -105,7 +105,7 @@ void fetchTruckData() {
 
             // ── Trailer ────────────────────────────────────
             trailer.attached  = doc["trailer"]["attached"];
-            trailer.name      = doc["trailer"]["trailerName"].as<String>();
+            trailer.name      = doc["trailer"]["name"].as<String>();
             trailer.mass      = doc["trailer"]["mass"];
             trailer.wear      = (int)(doc["trailer"]["trailerWear"].as<float>() * 100);
             trailer.cargoWear = (int)(doc["trailer"]["cargoWear"].as<float>()   * 100);
@@ -113,6 +113,7 @@ void fetchTruckData() {
             // ── Navigation ─────────────────────────────────
             navigation.estimatedDistance =
                 doc["navigation"]["estimatedDistance"].as<int>() / 1000;
+            navigation.speed_limit = round(doc["navigation"]["speedLimit"].as<int>()/5*5);
 
             xSemaphoreGive(dataAccessMutex);
         }

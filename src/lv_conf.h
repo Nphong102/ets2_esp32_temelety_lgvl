@@ -26,11 +26,14 @@
 // ── Fonts: chỉ bật size cần dùng ───────────────────────────
 #define LV_FONT_MONTSERRAT_10    1
 #define LV_FONT_MONTSERRAT_12    1
+#define LV_FONT_MONTSERRAT_14    1
 #define LV_FONT_MONTSERRAT_16    1
 #define LV_FONT_MONTSERRAT_20    1
-#define LV_FONT_MONTSERRAT_48    1  // speed digit
-#define LV_FONT_DEFAULT        &lv_font_montserrat_12
-#define LV_FONT_CUSTOM_DECLARE LV_FONT_DECLARE(obitron)
+#define LV_FONT_UNSCII_8        1
+//#define LV_FONT_MONTSERRAT_48    1  // speed digit
+#define LV_FONT_DEFAULT        &lv_font_montserrat_14
+#define LV_FONT_CUSTOM_DECLARE LV_FONT_DECLARE(obitron) LV_FONT_DECLARE(roboto)
+ 
 // ── Widgets: chỉ bật cần dùng ──────────────────────────────
 #define LV_USE_ARC          0
 #define LV_USE_BAR          1
@@ -96,7 +99,7 @@
 #define LV_INDEV_DEF_LONG_PRESS_REP_TIME 100
 #define LV_INDEV_DEF_GESTURE_LIMIT       50
 #define LV_INDEV_DEF_GESTURE_MIN_VELOCITY 3
-#define LV_LABEL_DEF_SCROLL_SPEED        40
+//#define LV_LABEL_DEF_SCROLL_SPEED        40
 
 #endif // LV_CONF_H
 #endif // enable guard

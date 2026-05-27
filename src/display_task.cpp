@@ -14,11 +14,18 @@
 #include "config.h"
 #include "data_types.h"
 #include "display_task.h"
-
-#if LV_FONT_MONTSERRAT_48
+#include "font/myfont.h"
+LV_IMG_DECLARE(gw);  
+LV_IMG_DECLARE(x); 
+LV_IMG_DECLARE(ribi1); 
+LV_IMG_DECLARE(ribi2); 
+LV_IMG_DECLARE(ribi3); 
+LV_IMG_DECLARE(park); 
+ /* forward-declare the symbol */
+#if LV_FONT_MONTSERRAT_16
 #pragma message "LV_FONT_MONTSERRAT_48 is enabled"
 #else
-#error "LV_FONT_MONTSERRAT_48 is NOT enabled!"
+#error "LV_FONT_MONTSERRAT_16 is NOT enabled!"
 #endif
 // ════════════════════════════════════════════════════════
 // 1. LVGL DRIVER — buffer từ PSRAM
@@ -33,10 +40,11 @@ static lv_color_t *lvgl_buf1 = nullptr;     // cấp phát từ PSRAM trong setu
 static lv_color_t *lvgl_buf2 = nullptr;
 // ====================== BOOT ANIMATION ======================
 static lv_obj_t *boot_scr = nullptr;
+static lv_obj_t *img_scr = nullptr;
 static lv_obj_t *boot_label = nullptr;
 static lv_obj_t *boot_progress = nullptr;
 static lv_obj_t *boot_status = nullptr;
-
+static lv_obj_t *test ;
 void showBootSequence() {
     lv_obj_t *main_scr = lv_scr_act();
 
@@ -75,8 +83,36 @@ void showBootSequence() {
     lv_obj_align(boot_status, LV_ALIGN_BOTTOM_MID, 0, -30);
     lv_label_set_text(boot_status, "Initializing...");
 
-    lv_disp_load_scr(boot_scr);
-    lv_task_handler(); // Update ngay
+    
+    // Hiển thị logo 1
+    lv_obj_t *logo_scr = lv_obj_create(NULL);
+    lv_obj_set_style_bg_color(logo_scr, lv_color_black(), 0);
+    lv_obj_t *logo_img = lv_img_create(logo_scr);
+    lv_img_set_src(logo_img, &ribi1);
+    lv_obj_center(logo_img);
+    lv_scr_load_anim(logo_scr, LV_SCR_LOAD_ANIM_FADE_IN, 500, 0, false);
+        Serial.printf("anh 1 load  psram=%d\n",ESP.getFreePsram());
+    unsigned long t = millis();
+    while (millis() - t < 2000) { lv_task_handler(); delay(5); }
+
+ // Hiển thị logo 2
+    lv_obj_t *scr_x = lv_obj_create(NULL);
+    lv_obj_set_style_bg_color(scr_x, lv_color_black(), 0);
+    lv_obj_t *img_x = lv_img_create(scr_x);
+    lv_img_set_src(img_x, &ribi2);
+    lv_obj_center(img_x);
+    lv_scr_load_anim(scr_x, LV_SCR_LOAD_ANIM_OVER_RIGHT, 500, 0, false);
+     Serial.printf("anh 2  load  psram=%d\n",ESP.getFreePsram());
+    t = millis();
+    while (millis() - t < 2000) { lv_task_handler(); delay(5); }
+
+    // Chuyển sang boot screen
+    lv_scr_load_anim(boot_scr, LV_SCR_LOAD_ANIM_FADE_IN, 500, 0, false);
+    t = millis();
+    while (millis() - t < 600) { lv_timer_handler(); delay(5); }
+    // Xóa logo screens ngay sau khi không dùng nữa
+    lv_obj_del(logo_scr);
+    lv_obj_del(scr_x);
 
     // ====================== BOOT SEQUENCE ======================
     const char* steps[] = {
@@ -119,17 +155,19 @@ void showBootSequence() {
     lv_task_handler();
     delay(800);
 
-    lv_disp_load_scr(main_scr);   // ✅ load lại màn hình mặc định
-    lv_obj_del(boot_scr);         // ✅ xóa boot screen an toàn
+     lv_scr_load_anim(main_scr, LV_SCR_LOAD_ANIM_FADE_IN, 500, 0, false);
+    t = millis();
+    while (millis() - t < 600) { lv_timer_handler(); delay(5); }
+    
+    lv_obj_del(boot_scr);
     boot_scr = nullptr;
-
     Serial.println("[BOOT] Boot sequence completed");
 }
 void lvgl_create_buffers() 
 {
     // Chọn kích thước buffer (càng lớn càng mượt, nhưng tốn PSRAM)
     // BUF_SIZE = SCREEN_WIDTH * SCREEN_HEIGHT / N
-    const uint32_t buf_size = (SCREEN_WIDTH * SCREEN_HEIGHT) / 4;   // ← Dùng 1/4 màn hình (khuyến nghị)
+    const uint32_t buf_size = (SCREEN_WIDTH * SCREEN_HEIGHT) ;   // ← Dùng 1/4 màn hình (khuyến nghị)
 
     Serial.printf("[LVGL] Allocating buffers: %d pixels each (~%d KB)\n", 
                   buf_size, (buf_size * sizeof(lv_color_t)) / 1024);
@@ -208,6 +246,11 @@ static lv_obj_t *lbl_wear_c;
 static lv_obj_t *lbl_trailer;
 static lv_obj_t *lbl_time;
 static lv_obj_t *lbl_income;
+static lv_obj_t *icon_park;
+static lv_obj_t *lbl_trl_prefix;
+static lv_obj_t *lbl_vol;
+static lv_obj_t  *spd_limit ;
+static const lv_img_dsc_t* speed_imgs[] = {&sp30, &sp40, &sp50, &sp60, &sp70, &sp80, &sp90};
 
 // ════════════════════════════════════════════════════════
 // 3. HELPER: tạo horizontal divider
@@ -258,27 +301,32 @@ static void createUI() {
     lbl_gear = lv_label_create(hdr);
     lv_obj_set_style_text_font(lbl_gear, &lv_font_montserrat_20, 0);
     lv_obj_set_style_text_color(lbl_gear, lv_color_hex(0xFFD700), 0);
-    lv_obj_align(lbl_gear, LV_ALIGN_CENTER, -20, 0);
+    lv_obj_align(lbl_gear, LV_ALIGN_CENTER, 0, 0);
     lv_label_set_text(lbl_gear, "N");
 
     lbl_clock = lv_label_create(hdr);
-    lv_obj_set_style_text_font(lbl_clock, &lv_font_montserrat_16, 0);
+    lv_obj_set_style_text_font(lbl_clock, &roboto, 0);
     lv_obj_set_style_text_color(lbl_clock, lv_color_hex(0xFFD700), 0);
-    lv_obj_align(lbl_clock, LV_ALIGN_RIGHT_MID, -4, 0);
+    lv_obj_align(lbl_clock, LV_ALIGN_TOP_RIGHT, 0, 0);
     lv_label_set_text(lbl_clock, "--:--");
 
+    lbl_vol = lv_label_create(hdr);
+    lv_obj_set_style_text_font(lbl_vol, &roboto, 0);
+    lv_obj_set_style_text_color(lbl_vol, lv_color_hex(0xFFD700), 0);
+    lv_obj_align(lbl_vol, LV_ALIGN_BOTTOM_RIGHT, 0, 0);
+    lv_label_set_text(lbl_vol, "V");
     // ── Divider xanh y=38 ─────────────────────────────────────
     make_divider(scr, 38, lv_color_hex(0x3A6EA5));
 
     // ── Row2: Temp + Speed  y=40..99 ──────────────────────────
     lbl_oil = lv_label_create(scr);
-    lv_obj_set_style_text_font(lbl_oil, &lv_font_montserrat_10, 0);
+    lv_obj_set_style_text_font(lbl_oil,  &lv_font_montserrat_14, 0);
     lv_obj_set_style_text_color(lbl_oil, lv_color_hex(0xFF9900), 0);
     lv_obj_set_pos(lbl_oil, 4, 44);
     lv_label_set_text(lbl_oil, "Oil:--C");
 
     lbl_h2o = lv_label_create(scr);
-    lv_obj_set_style_text_font(lbl_h2o, &lv_font_montserrat_10, 0);
+    lv_obj_set_style_text_font(lbl_h2o,  &lv_font_montserrat_14, 0);
     lv_obj_set_style_text_color(lbl_h2o, lv_color_hex(0x00AAFF), 0);
     lv_obj_set_pos(lbl_h2o, 4, 62);
     lv_label_set_text(lbl_h2o, "H2O:--C");
@@ -287,7 +335,7 @@ static void createUI() {
    // lv_obj_set_style_text_font(lbl_speed, &lv_font_montserrat_48, 0);
     lv_obj_set_style_text_color(lbl_speed, lv_color_hex(0xFFFFFF), 0);
     lv_obj_set_style_text_font(lbl_speed, &obitron, 0);
-    lv_obj_align(lbl_speed, LV_ALIGN_TOP_MID, 0, 40);
+    lv_obj_align(lbl_speed, LV_ALIGN_TOP_MID, 0, 45);
     lv_label_set_text(lbl_speed, "0");
 
     // ── Row3: ODO + Dist  y=100..112 ──────────────────────────
@@ -318,13 +366,13 @@ static void createUI() {
     lv_bar_set_value(bar_fuel, 0, LV_ANIM_OFF);
     lv_obj_set_style_bg_color(bar_fuel, lv_color_hex(0x0A0A2A), LV_PART_MAIN);
     lv_obj_set_style_border_color(bar_fuel, lv_color_hex(0x2244AA), LV_PART_MAIN);
-    lv_obj_set_style_border_width(bar_fuel, 1, LV_PART_MAIN);
+    lv_obj_set_style_border_width(bar_fuel, 2, LV_PART_MAIN);
     lv_obj_set_style_radius(bar_fuel, 2, LV_PART_MAIN);
     lv_obj_set_style_bg_color(bar_fuel, lv_color_hex(0x2266FF), LV_PART_INDICATOR);
     lv_obj_set_style_radius(bar_fuel, 1, LV_PART_INDICATOR);
 
     lbl_fuel_val = lv_label_create(scr);
-    lv_obj_set_style_text_font(lbl_fuel_val, &lv_font_montserrat_10, 0);
+    lv_obj_set_style_text_font(lbl_fuel_val,  &lv_font_montserrat_14, 0);
     lv_obj_set_style_text_color(lbl_fuel_val, lv_color_hex(0xFFFFFF), 0);
     lv_obj_align_to(lbl_fuel_val, bar_fuel, LV_ALIGN_CENTER, 0, 0);
     lv_label_set_text(lbl_fuel_val, "0");
@@ -343,13 +391,13 @@ static void createUI() {
     lv_bar_set_value(bar_air, 0, LV_ANIM_OFF);
     lv_obj_set_style_bg_color(bar_air, lv_color_hex(0x0A0A2A), LV_PART_MAIN);
     lv_obj_set_style_border_color(bar_air, lv_color_hex(0x336600), LV_PART_MAIN);
-    lv_obj_set_style_border_width(bar_air, 1, LV_PART_MAIN);
+    lv_obj_set_style_border_width(bar_air, 2, LV_PART_MAIN);
     lv_obj_set_style_radius(bar_air, 2, LV_PART_MAIN);
     lv_obj_set_style_bg_color(bar_air, lv_color_hex(0x88CC00), LV_PART_INDICATOR);
     lv_obj_set_style_radius(bar_air, 1, LV_PART_INDICATOR);
 
     lbl_air_val = lv_label_create(scr);
-    lv_obj_set_style_text_font(lbl_air_val, &lv_font_montserrat_10, 0);
+    lv_obj_set_style_text_font(lbl_air_val,  &lv_font_montserrat_14, 0);
     lv_obj_set_style_text_color(lbl_air_val, lv_color_hex(0xFFFFFF), 0);
     lv_obj_align_to(lbl_air_val, bar_air, LV_ALIGN_CENTER, 0, 0);
     lv_label_set_text(lbl_air_val, "0");
@@ -362,52 +410,67 @@ static void createUI() {
     lv_label_set_text(lbl_dam, "Dam\nInfo");
 
     lbl_wear_t = lv_label_create(scr);
-    lv_obj_set_style_text_font(lbl_wear_t, &lv_font_montserrat_10, 0);
+    lv_obj_set_style_text_font(lbl_wear_t,  &lv_font_montserrat_14, 0);
     lv_obj_set_style_text_color(lbl_wear_t, lv_color_hex(0x88CC00), 0);
-    lv_obj_set_pos(lbl_wear_t, 42, 196);
+    lv_obj_set_pos(lbl_wear_t, 42, 150);
     lv_label_set_text(lbl_wear_t, "T:0%");
 
     lbl_wear_tr = lv_label_create(scr);
-    lv_obj_set_style_text_font(lbl_wear_tr, &lv_font_montserrat_10, 0);
+    lv_obj_set_style_text_font(lbl_wear_tr,  &lv_font_montserrat_14, 0);
     lv_obj_set_style_text_color(lbl_wear_tr, lv_color_hex(0x88CC00), 0);
-    lv_obj_align(lbl_wear_tr, LV_ALIGN_TOP_MID, 10, 196);
+    lv_obj_align(lbl_wear_tr, LV_ALIGN_TOP_MID, 10, 150);
     lv_label_set_text(lbl_wear_tr, "Tr:0%");
 
     lbl_wear_c = lv_label_create(scr);
-    lv_obj_set_style_text_font(lbl_wear_c, &lv_font_montserrat_10, 0);
+    lv_obj_set_style_text_font(lbl_wear_c,  &lv_font_montserrat_14, 0);
     lv_obj_set_style_text_color(lbl_wear_c, lv_color_hex(0x88CC00), 0);
-    lv_obj_align(lbl_wear_c, LV_ALIGN_TOP_RIGHT, -30, 196);
+    lv_obj_align(lbl_wear_c, LV_ALIGN_TOP_RIGHT, -30, 150);
     lv_label_set_text(lbl_wear_c, "C:0%");
 
+    icon_park = lv_img_create(scr);
+    lv_obj_set_pos(icon_park, 200, 200); 
+    lv_img_set_src(icon_park, &park);
+    
+ 
+
     // ── Divider đỏ y=212 ──────────────────────────────────────
-    make_divider(scr, 212, lv_color_hex(0xCC2200));
+    make_divider(scr, 280, lv_color_hex(0xCC2200));
 
     // ── Footer  y=213..319 ────────────────────────────────────
-    lv_obj_t *lbl_trl_prefix = lv_label_create(scr);
+    lbl_trl_prefix = lv_label_create(scr);
     lv_obj_set_style_text_font(lbl_trl_prefix, &lv_font_montserrat_12, 0);
     lv_obj_set_style_text_color(lbl_trl_prefix, lv_color_hex(0x88CC00), 0);
-    lv_obj_set_pos(lbl_trl_prefix, 4, 216);
+    lv_obj_set_pos(lbl_trl_prefix, 4, 282);
     lv_label_set_text(lbl_trl_prefix, "TRL:");
 
     lbl_trailer = lv_label_create(scr);
-    lv_obj_set_style_text_font(lbl_trailer, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_font(lbl_trailer, &roboto, 0);
     lv_obj_set_style_text_color(lbl_trailer, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_set_pos(lbl_trailer, 36, 216);
+    lv_obj_set_pos(lbl_trailer, 36, 282);
     lv_obj_set_width(lbl_trailer, 200);
     lv_label_set_long_mode(lbl_trailer, LV_LABEL_LONG_SCROLL_CIRCULAR);
-    lv_label_set_text(lbl_trailer, "-- No Trailer --");
+    lv_label_set_text(lbl_trailer, "Không có hàng");
 
     lbl_time = lv_label_create(scr);
-    lv_obj_set_style_text_font(lbl_time, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_font(lbl_time, &lv_font_montserrat_16, 0);
     lv_obj_set_style_text_color(lbl_time, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_set_pos(lbl_time, 4, 236);
     lv_label_set_text(lbl_time, "Time: --");
+    lv_obj_align(lbl_time, LV_ALIGN_BOTTOM_LEFT, -4, 0);
 
     lbl_income = lv_label_create(scr);
-    lv_obj_set_style_text_font(lbl_income, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_font(lbl_income, &lv_font_montserrat_16, 0);
     lv_obj_set_style_text_color(lbl_income, lv_color_hex(0xFFD700), 0);
-    lv_obj_align(lbl_income, LV_ALIGN_TOP_RIGHT, -4, 236);
     lv_label_set_text(lbl_income, "$:0");
+    lv_obj_align(lbl_income, LV_ALIGN_BOTTOM_RIGHT, -4, 0);
+
+    spd_limit = lv_img_create(scr);
+    
+    lv_img_set_src(spd_limit, &sp30);
+    lv_obj_align_to(spd_limit,lbl_trl_prefix,LV_ALIGN_OUT_TOP_LEFT, -5, -10); 
+    test = lv_label_create(scr);
+    lv_obj_align_to(test,spd_limit,LV_ALIGN_OUT_RIGHT_TOP,5,5);
+    lv_label_set_text(test, "0");
+
 
     Serial.println("[UI] Widgets created OK");
 }
@@ -425,6 +488,212 @@ static lv_color_t wearColor(int pct) {
 // 6. refreshUI — cập nhật widget từ data (gọi trong DisplayTask)
 // ════════════════════════════════════════════════════════
 static void refreshUI() {
+    char buf[48];
+
+    // ── Clock ─────────────────────────────────────────────────
+    static String prev_clock;
+    String cur_clock = game.realTime.length() > 0 ? game.realTime : String(timeStr);
+    if (cur_clock != prev_clock) {
+        prev_clock = cur_clock;
+        lv_label_set_text(lbl_clock, cur_clock.c_str());
+       
+    }
+   
+    // ── Truck name + plate ────────────────────────────────────
+    static String prev_name, prev_plate;
+    String name = truck.make + " " + truck.model;
+    if (name.length() > 14) name = name.substring(0, 13) + ".";
+    if (name != prev_name) {
+        prev_name = name;
+        lv_label_set_text(lbl_truck_name, name.c_str());
+    }
+    String cur_plate = truck.licensePlate.length() > 0 ? truck.licensePlate : "---";
+    if (cur_plate != prev_plate) {
+        prev_plate = cur_plate;
+        lv_label_set_text(lbl_plate, cur_plate.c_str());
+    }
+
+    // ── Gear ──────────────────────────────────────────────────
+    static int prev_gear = -999;
+    if (truck.displayedGear != prev_gear) {
+        prev_gear = truck.displayedGear;
+        if      (truck.displayedGear < 0)  snprintf(buf, sizeof(buf), "R%d", abs(truck.displayedGear));
+        else if (truck.displayedGear == 0) snprintf(buf, sizeof(buf), "N");
+        else                               snprintf(buf, sizeof(buf), "%d", truck.displayedGear);
+        lv_label_set_text(lbl_gear, buf);
+    }
+
+    // ── Speed ─────────────────────────────────────────────────
+    static int prev_speed = -1;
+    static bool prev_speed_warn = false;
+    bool speed_warn = truck.speedLimit > 0 && truck.speed > truck.speedLimit + 5;
+    if (truck.speed != prev_speed) {
+        prev_speed = truck.speed;
+        snprintf(buf, sizeof(buf), "%d", truck.speed);
+        lv_label_set_text(lbl_speed, buf);
+    }
+    if (speed_warn != prev_speed_warn) {
+        prev_speed_warn = speed_warn;
+        lv_obj_set_style_text_color(lbl_speed,
+            speed_warn ? lv_color_hex(0xFF4444) : lv_color_hex(0xFFFFFF), 0);
+    }
+
+    // ── Oil ───────────────────────────────────────────────────
+    static int prev_oil = -1;
+    if (truck.oilTemperature != prev_oil) {
+        prev_oil = truck.oilTemperature;
+        snprintf(buf, sizeof(buf), "Oil:%dC", truck.oilTemperature);
+        lv_label_set_text(lbl_oil, buf);
+        lv_obj_set_style_text_color(lbl_oil,
+            truck.oilTemperature > 105 ? lv_color_hex(0xFF4400) : lv_color_hex(0xFF9900), 0);
+    }
+
+    // ── H2O ───────────────────────────────────────────────────
+    static int prev_h2o = -1;
+    if (truck.waterTemperature != prev_h2o) {
+        prev_h2o = truck.waterTemperature;
+        snprintf(buf, sizeof(buf), "H2O:%dC", truck.waterTemperature);
+        lv_label_set_text(lbl_h2o, buf);
+        lv_obj_set_style_text_color(lbl_h2o,
+            truck.waterTemperature > 95 ? lv_color_hex(0xFF4400) : lv_color_hex(0x00AAFF), 0);
+    }
+
+    // ── ODO ───────────────────────────────────────────────────
+    static int prev_odo = -1;
+    if (truck.odo != prev_odo) {
+        prev_odo = truck.odo;
+        snprintf(buf, sizeof(buf), "ODO:%dkm", truck.odo);
+        lv_label_set_text(lbl_odo, buf);
+    }
+
+    // ── Distance ──────────────────────────────────────────────
+    static int prev_dist = -1;
+    if (navigation.estimatedDistance != prev_dist) {
+        prev_dist = navigation.estimatedDistance;
+        snprintf(buf, sizeof(buf), "%dkm", navigation.estimatedDistance);
+        lv_label_set_text(lbl_dist, buf);
+    }
+
+    // ── Fuel bar ──────────────────────────────────────────────
+    static int prev_fuel = -1;
+    static bool prev_fuel_warn = false;
+    if (truck.fuel != prev_fuel || truck.fuelWarningOn != prev_fuel_warn) {
+        prev_fuel = truck.fuel;
+        prev_fuel_warn = truck.fuelWarningOn;
+        int fuelCap = max(1, truck.fuelCapacity);
+        lv_bar_set_range(bar_fuel, 0, fuelCap);
+        lv_bar_set_value(bar_fuel, truck.fuel, LV_ANIM_ON);
+        snprintf(buf, sizeof(buf), "%d", truck.fuel);
+        lv_label_set_text(lbl_fuel_val, buf);
+        lv_obj_set_style_bg_color(bar_fuel,
+            truck.fuelWarningOn ? lv_color_hex(0xFF4400) : lv_color_hex(0x2266FF),
+            LV_PART_INDICATOR);
+    }
+
+    // ── Air bar ───────────────────────────────────────────────
+    static int prev_air = -1;
+    static bool prev_air_warn = false;
+    if (truck.airPressure != prev_air || truck.airWarningOn != prev_air_warn) {
+        prev_air = truck.airPressure;
+        prev_air_warn = truck.airWarningOn;
+        lv_bar_set_value(bar_air, truck.airPressure, LV_ANIM_ON);
+        snprintf(buf, sizeof(buf), "%d", truck.airPressure);
+        lv_label_set_text(lbl_air_val, buf);
+        lv_obj_set_style_bg_color(bar_air,
+            truck.airWarningOn ? lv_color_hex(0xFF4400) : lv_color_hex(0x88CC00),
+            LV_PART_INDICATOR);
+    }
+
+    // ── Wear ──────────────────────────────────────────────────
+    static int prev_wear_t = -1, prev_wear_tr = -1, prev_wear_c = -1;
+    if (truck.wear != prev_wear_t) {
+        prev_wear_t = truck.wear;
+        snprintf(buf, sizeof(buf), "T:%d%%", truck.wear);
+        lv_label_set_text(lbl_wear_t, buf);
+        lv_obj_set_style_text_color(lbl_wear_t, wearColor(truck.wear), 0);
+    }
+    if (trailer.wear != prev_wear_tr) {
+        prev_wear_tr = trailer.wear;
+        snprintf(buf, sizeof(buf), "Tr:%d%%", trailer.wear);
+        lv_label_set_text(lbl_wear_tr, buf);
+        lv_obj_set_style_text_color(lbl_wear_tr, wearColor(trailer.wear), 0);
+    }
+    if (trailer.cargoWear != prev_wear_c) {
+        prev_wear_c = trailer.cargoWear;
+        snprintf(buf, sizeof(buf), "C:%d%%", trailer.cargoWear);
+        lv_label_set_text(lbl_wear_c, buf);
+        lv_obj_set_style_text_color(lbl_wear_c, wearColor(trailer.cargoWear), 0);
+    }
+
+    // ── Trailer ───────────────────────────────────────────────
+    static String prev_trailer;
+    String cur_trailer;
+    if (trailer.attached && trailer.name.length() > 0) {
+        int massT = trailer.mass / 1000;
+        snprintf(buf, sizeof(buf), "%s (%dT)",
+                 trailer.name.c_str(), massT);
+        cur_trailer = buf;
+    } else {
+        cur_trailer = "--------Không có hàng hoá ------";
+    }
+    if (cur_trailer != prev_trailer) {
+        prev_trailer = cur_trailer;
+        lv_label_set_text(lbl_trailer, cur_trailer.c_str());
+    }
+
+    // ── Time remaining ────────────────────────────────────────
+    static String prev_time;
+    if (job.remainingTime.length() > 0 && job.remainingTime != prev_time) {
+        prev_time = job.remainingTime;
+        snprintf(buf, sizeof(buf), "Time: %s", job.remainingTime.c_str());
+        lv_label_set_text(lbl_time, buf);
+        lv_obj_set_style_text_color(lbl_time,
+            job.remainingTime[0] == '-'
+            ? lv_color_hex(0xFF4400) : lv_color_hex(0xFFFFFF), 0);
+    }
+
+    // ── Income ────────────────────────────────────────────────
+    static int prev_income = -1;
+    if (job.income != prev_income) {
+        prev_income = job.income;
+        snprintf(buf, sizeof(buf), "$:%d", job.income);
+        lv_label_set_text(lbl_income, buf);
+    }
+
+    if (truck.parkingBreak == false){
+        lv_obj_add_flag(icon_park, LV_OBJ_FLAG_HIDDEN);
+
+    } else 
+    {
+        lv_obj_clear_flag(icon_park, LV_OBJ_FLAG_HIDDEN);
+    }
+
+     static int lass_spd_limit = 0;
+     if (navigation.speed_limit != lass_spd_limit )
+     {
+        lass_spd_limit = navigation.speed_limit;
+        // Gọi
+            int idx = (navigation.speed_limit - 30) / 10;  // 30→0, 40→1, ...
+            if (idx >= 0 && idx <= 6) {
+                lv_img_set_src(spd_limit, speed_imgs[idx]);
+            }
+  
+     }
+
+    static unsigned long last_read_vol = 0;
+    if (millis() - last_read_vol > 1000) {
+        int adcValue = analogRead(BAT_ADC_PIN);
+        float batteryVoltage = analogReadMilliVolts(BAT_ADC_PIN) * 2.0 / 1000.0;
+        
+         snprintf(buf, sizeof(buf), "%.2f V",batteryVoltage);
+         lv_label_set_text(lbl_vol,buf);
+        Serial.printf("Battery: %.2fV\n", batteryVoltage);
+        last_read_vol = millis();
+    }
+
+}
+
+static void refreshUIOLD() {
     char buf[48];
 
     // ── Clock ─────────────────────────────────────────────────
@@ -509,7 +778,7 @@ static void refreshUI() {
                  trailer.name.substring(0, 22).c_str(), massT);
         lv_label_set_text(lbl_trailer, buf);
     } else {
-        lv_label_set_text(lbl_trailer, "-- No Trailer --");
+        lv_label_set_text(lbl_trailer, "--------Không có hàng hoá ------");
     }
 
     // ── Time remaining ────────────────────────────────────────
@@ -599,7 +868,7 @@ void DisplayTask(void* parameter) {
             }
 
             // lv_task_handler() NGOÀI mutex — flush SPI không cần mutex
-            lv_task_handler();
+            lv_timer_handler();
         }
 
         vTaskDelay(pdMS_TO_TICKS(5));

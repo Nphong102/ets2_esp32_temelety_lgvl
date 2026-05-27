@@ -29,3 +29,4 @@ extern TFT_eSPI tft;
 extern unsigned long lastWiFiUpdate;
 extern unsigned long lastTFTUpdate;
 extern char          timeStr[9];
+#define BAT_ADC_PIN  9

@@ -18,7 +18,7 @@ void setup() {
     Serial.println("=============================");
     Serial.println("Free heap:  " + String(ESP.getFreeHeap()));
     Serial.println("Free PSRAM: " + String(ESP.getFreePsram()));
-
+    pinMode(BAT_ADC_PIN, INPUT);
     // 1. Mutex — tạo trước tất cả
     dataAccessMutex = xSemaphoreCreateMutex();
     if (!dataAccessMutex) {

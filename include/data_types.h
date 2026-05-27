@@ -58,6 +58,7 @@ struct TrailerData {
 // ==================== Navigation Data ====================
 struct NavigationData {
   int estimatedDistance = 0;
+  int speed_limit = 0;
 };
 
 // ==================== Extern declarations ====================
